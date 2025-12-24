@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ChevronDown, User, LogOut } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useSocket } from '../../context/SocketContext';
@@ -9,7 +9,7 @@ import moment from 'moment';
 import { toast } from 'react-toastify';
 import ThemeToggle from './ThemeToggle';
 
-const TopBar = () => {
+const TopBar = ({ onMenuClick }) => {
     const { user, logout } = useContext(AuthContext);
     const { theme } = useTheme();
     const socket = useSocket();
@@ -77,8 +77,17 @@ const TopBar = () => {
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 h-16 border-b dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-40 shadow-sm ml-64 transition-colors duration-200">
-            <div className="flex items-center space-x-8 flex-1">
+        <div className="bg-white dark:bg-gray-800 h-16 border-b dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shadow-sm lg:ml-64 transition-colors duration-200">
+            <div className="flex items-center space-x-3 sm:space-x-8 flex-1">
+                 <button
+                    type="button"
+                    className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={onMenuClick}
+                    aria-label="Open sidebar"
+                 >
+                    <Menu size={20} />
+                 </button>
+
                  {/* Search or other nav items could go here */}
                  <div className="hidden md:flex space-x-8 text-sm font-semibold text-gray-500 dark:text-gray-400">
                      {/* Placeholder links */}
