@@ -12,6 +12,7 @@
     },
     "dependencies": {
         "@react-three/fiber": "^8.18.0",
+        "agora-rtc-sdk-ng": "^4.24.2",
         "axios": "^1.5.0",
         "clsx": "^2.1.1",
         "framer-motion": "^10.16.4",

@@ -1,17 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../layout/Layout';
 import { getConversations, getMessages, sendMessage } from '../../api/chat';
 import { useSocket } from '../../context/SocketContext';
-import { ArrowLeft, Send, User } from 'lucide-react';
+import { ArrowLeft, Phone, Send, User, Video } from 'lucide-react';
 import moment from 'moment';
+import { AuthContext } from '../../context/AuthContext';
+import CallOverlay from './CallOverlay';
 
 const Chat = () => {
     const socket = useSocket();
+    const { user } = useContext(AuthContext);
     const [conversations, setConversations] = useState([]);
     const [currentChat, setCurrentChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const scrollRef = useRef();
+
+    const [incomingCall, setIncomingCall] = useState(null); // { fromUserId, callType, channelName }
+    const [outgoingCall, setOutgoingCall] = useState(null); // { toUserId, callType, channelName }
+    const [activeCall, setActiveCall] = useState(null); // { peerId, callType, channelName }
+
+    const conversationById = useMemo(() => {
+        const map = new Map();
+        conversations.forEach((c) => map.set(c._id, c));
+        return map;
+    }, [conversations]);
 
     useEffect(() => {
         const fetchConversations = async () => {
@@ -50,8 +63,51 @@ const Chat = () => {
             }
         });
 
+        socket.on('call_invite', (data) => {
+            setIncomingCall({
+                fromUserId: data.fromUserId,
+                callType: data.callType,
+                channelName: data.channelName
+            });
+        });
+
+        socket.on('call_accepted', (data) => {
+            setOutgoingCall((prev) => {
+                if (!prev) return prev;
+                if (prev.channelName !== data.channelName) return prev;
+                setActiveCall({
+                    peerId: prev.toUserId,
+                    callType: prev.callType,
+                    channelName: prev.channelName
+                });
+                return null;
+            });
+        });
+
+        socket.on('call_rejected', (data) => {
+            setOutgoingCall((prev) => {
+                if (!prev) return prev;
+                if (prev.channelName !== data.channelName) return prev;
+                return null;
+            });
+        });
+
+        socket.on('call_ended', (data) => {
+            setActiveCall((prev) => {
+                if (!prev) return prev;
+                if (prev.channelName !== data.channelName) return prev;
+                return null;
+            });
+            setIncomingCall(null);
+            setOutgoingCall(null);
+        });
+
         return () => {
             socket.off('receive_message');
+            socket.off('call_invite');
+            socket.off('call_accepted');
+            socket.off('call_rejected');
+            socket.off('call_ended');
         };
     }, [socket, currentChat]);
 
@@ -72,8 +128,96 @@ const Chat = () => {
         }
     };
 
+    const createChannelName = (peerId) => {
+        const me = String(user?._id || 'me');
+        const them = String(peerId || 'peer');
+        const pair = [me, them].sort().join('_');
+        return `call_${pair}_${Date.now()}`;
+    };
+
+    const startCall = (callType) => {
+        if (!socket || !currentChat) return;
+        const channelName = createChannelName(currentChat._id);
+        setOutgoingCall({ toUserId: currentChat._id, callType, channelName });
+        socket.emit('call_invite', { toUserId: currentChat._id, callType, channelName });
+    };
+
+    const acceptIncomingCall = () => {
+        if (!socket || !incomingCall) return;
+        socket.emit('call_accept', {
+            toUserId: incomingCall.fromUserId,
+            callType: incomingCall.callType,
+            channelName: incomingCall.channelName
+        });
+        setActiveCall({
+            peerId: incomingCall.fromUserId,
+            callType: incomingCall.callType,
+            channelName: incomingCall.channelName
+        });
+        setIncomingCall(null);
+    };
+
+    const rejectIncomingCall = () => {
+        if (!socket || !incomingCall) return;
+        socket.emit('call_reject', {
+            toUserId: incomingCall.fromUserId,
+            channelName: incomingCall.channelName
+        });
+        setIncomingCall(null);
+    };
+
+    const endActiveCall = () => {
+        if (!socket || !activeCall) {
+            setActiveCall(null);
+            return;
+        }
+        socket.emit('call_end', {
+            toUserId: activeCall.peerId,
+            channelName: activeCall.channelName
+        });
+        setActiveCall(null);
+    };
+
     return (
         <Layout>
+            <CallOverlay
+                isOpen={!!activeCall}
+                callType={activeCall?.callType}
+                channelName={activeCall?.channelName}
+                onEnd={endActiveCall}
+                peerName={conversationById.get(activeCall?.peerId)?.name}
+                peerAvatarUrl={conversationById.get(activeCall?.peerId)?.avatarUrl}
+            />
+
+            {incomingCall && (
+                <div className="mb-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-white truncate">
+                            Incoming {incomingCall.callType === 'audio' ? 'audio' : 'video'} call
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            From {conversationById.get(incomingCall.fromUserId)?.name || 'a connection'}
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={acceptIncomingCall}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                        >
+                            Accept
+                        </button>
+                        <button
+                            type="button"
+                            onClick={rejectIncomingCall}
+                            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
+                        >
+                            Reject
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-[calc(100vh-120px)] flex overflow-hidden transition-colors duration-200">
                 {/* Sidebar */}
                 <div className={`w-full md:w-1/3 border-r border-gray-100 dark:border-gray-700 flex flex-col ${currentChat ? 'hidden md:flex' : 'flex'}`}>
@@ -108,7 +252,8 @@ const Chat = () => {
                     {currentChat ? (
                         <>
                             {/* Chat Header */}
-                            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center space-x-3">
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+                                <div className="flex items-center space-x-3 min-w-0">
                                 <button
                                     type="button"
                                     onClick={() => setCurrentChat(null)}
@@ -122,11 +267,51 @@ const Chat = () => {
                                     alt=""
                                     className="w-10 h-10 rounded-full object-cover"
                                 />
-                                <div>
+                                <div className="min-w-0">
                                     <h3 className="font-bold text-gray-900 dark:text-white">{currentChat.name}</h3>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">Online</p>
                                 </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => startCall('audio')}
+                                        disabled={!!outgoingCall || !!activeCall}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                                        aria-label="Start audio call"
+                                    >
+                                        <Phone size={18} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => startCall('video')}
+                                        disabled={!!outgoingCall || !!activeCall}
+                                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                                        aria-label="Start video call"
+                                    >
+                                        <Video size={18} />
+                                    </button>
+                                </div>
                             </div>
+
+                            {outgoingCall && outgoingCall.toUserId === currentChat._id && (
+                                <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between gap-3">
+                                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                                        Calling…
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            socket?.emit('call_end', { toUserId: outgoingCall.toUserId, channelName: outgoingCall.channelName });
+                                            setOutgoingCall(null);
+                                        }}
+                                        className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Messages */}
                             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">

@@ -33,6 +33,7 @@ const notificationRoutes = require('./routes/notifications');
 const profileRoutes = require('./routes/profile');
 const chatRoutes = require('./routes/chat');
 const recommendationRoutes = require('./routes/recommendations');
+const agoraRoutes = require('./routes/agora');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -44,5 +45,6 @@ app.use('/api/mentorship', mentorshipRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/agora', agoraRoutes);
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
