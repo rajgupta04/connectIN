@@ -35,6 +35,22 @@ Notes:
 - `JWT_SECRET` must match what the client uses via the API token flow.
 - Cloudinary is required for avatar/cover and post media uploads.
 
+Create client env files (Vite):
+
+`client/.env.local` (local dev):
+
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+```
+
+Production: set these in your hosting provider (recommended), or use `client/.env.production`:
+
+```env
+VITE_API_BASE_URL=https://YOUR-RENDER-BACKEND.onrender.com/api
+VITE_SOCKET_URL=https://YOUR-RENDER-BACKEND.onrender.com
+```
+
 ## Install
 From the repo root:
 
