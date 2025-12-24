@@ -32,6 +32,7 @@ const connectionRoutes = require('./routes/connections');
 const notificationRoutes = require('./routes/notifications');
 const profileRoutes = require('./routes/profile');
 const chatRoutes = require('./routes/chat');
+const recommendationRoutes = require('./routes/recommendations');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -42,5 +43,6 @@ app.use('/api/alumni', alumniRoutes);
 app.use('/api/mentorship', mentorshipRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

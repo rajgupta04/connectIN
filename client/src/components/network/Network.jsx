@@ -1,17 +1,27 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { getConnectionRequests, getConnections, getAlumni, acceptConnectionRequest, sendConnectionRequest } from '../../api/network';
+import React, { useState, useEffect, useContext, useRef } from 'react';
+import { getConnectionRequests, getConnections, acceptConnectionRequest, sendConnectionRequest } from '../../api/network';
+import { getRecommendations, getRecommendationsByIds } from '../../api/recommendations';
 import Layout from '../layout/Layout';
 import Modal from '../layout/Modal';
 import { UserPlus, Check, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
+import RecommendedConnectionCard from './RecommendedConnectionCard';
 
 const Network = () => {
     const { user } = useContext(AuthContext);
     const [requests, setRequests] = useState([]);
     const [connections, setConnections] = useState([]);
-    const [suggestions, setSuggestions] = useState([]);
+    const [recommendations, setRecommendations] = useState([]);
+    const [recsLoading, setRecsLoading] = useState(true);
     const [loading, setLoading] = useState(true);
+
+    const removingIdsRef = useRef(new Set());
+    const [removingTick, setRemovingTick] = useState(0);
+
+    const seenKey = `connectin:seenRecommendations:${user?._id || 'anon'}`;
+    const queueKey = `connectin:recommendationQueue:${user?._id || 'anon'}`;
+    const seenIdsRef = useRef(new Set());
     
     // Connect Modal State
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
@@ -21,34 +31,91 @@ const Network = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [requestsRes, connectionsRes, alumniRes] = await Promise.all([
+                let currentQueue = [];
+
+                // Hydrate cached queue (keeps recommendations after reload)
+                const cachedQueue = localStorage.getItem(queueKey);
+                if (cachedQueue) {
+                    try {
+                        const parsedQueue = JSON.parse(cachedQueue);
+                        if (Array.isArray(parsedQueue) && parsedQueue.length > 0) {
+                            currentQueue = parsedQueue.slice(0, 10);
+                            setRecommendations(currentQueue);
+
+                            // Rehydrate cached objects from server so names/headlines stay current.
+                            const ids = currentQueue.map((u) => u?._id).filter(Boolean);
+                            if (ids.length > 0) {
+                                try {
+                                    const freshRes = await getRecommendationsByIds({ ids });
+                                    const fresh = Array.isArray(freshRes.data) ? freshRes.data : [];
+                                    if (fresh.length > 0) {
+                                        currentQueue = fresh.slice(0, 10);
+                                        setRecommendations(currentQueue);
+                                        localStorage.setItem(queueKey, JSON.stringify(currentQueue));
+                                    }
+                                } catch (_) {
+                                    // ignore rehydrate failures; keep cached
+                                }
+                            }
+                        }
+                    } catch (_) {
+                        // ignore corrupt storage
+                    }
+                }
+
+                const stored = localStorage.getItem(seenKey);
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) {
+                            seenIdsRef.current = new Set(parsed);
+                        }
+                    } catch (_) {
+                        // ignore corrupt storage
+                    }
+                }
+
+                const [requestsRes, connectionsRes] = await Promise.all([
                     getConnectionRequests(),
-                    getConnections(),
-                    getAlumni()
+                    getConnections()
                 ]);
 
                 setRequests(requestsRes.data);
                 setConnections(connectionsRes.data);
-                
-                // Filter suggestions: Remove self, existing connections, and pending requests
-                // Note: For a real app, do this filtering on backend or handle efficiently
-                const connectedIds = connectionsRes.data.map(c => c._id);
-                // Also need to check if I sent a request (not implemented in get requests api yet effectively for this view)
-                // For now, just show all alumni who are not in connections.
-                
-                // Ideally we should filter out the current user too, but let's assume backend handles or we filter by ID if we had it.
-                // Simplified logic:
-                setSuggestions(alumniRes.data.filter(u => !connectedIds.includes(u._id) && u._id !== user?._id));
+
+                setRecsLoading(true);
+
+                // Top up to 10 recommendations (server enforces filtering).
+                const needed = Math.max(0, 10 - currentQueue.length);
+                if (needed > 0) {
+                    const exclude = Array.from(seenIdsRef.current);
+                    const recRes = await getRecommendations({ limit: needed, exclude });
+                    const fetched = Array.isArray(recRes.data) ? recRes.data : [];
+                    if (fetched.length > 0) {
+                        fetched.forEach((r) => seenIdsRef.current.add(r._id));
+                        localStorage.setItem(seenKey, JSON.stringify(Array.from(seenIdsRef.current)));
+                        const merged = [...currentQueue, ...fetched].slice(0, 10);
+                        setRecommendations(merged);
+                        localStorage.setItem(queueKey, JSON.stringify(merged));
+                    } else if (currentQueue.length > 0) {
+                        setRecommendations(currentQueue);
+                        localStorage.setItem(queueKey, JSON.stringify(currentQueue));
+                    }
+                } else {
+                    localStorage.setItem(queueKey, JSON.stringify(currentQueue.slice(0, 10)));
+                }
                 
                 setLoading(false);
+                setRecsLoading(false);
             } catch (error) {
                 console.error("Error fetching network data:", error);
                 setLoading(false);
+                setRecsLoading(false);
             }
         };
 
         fetchData();
-    }, []);
+    }, [user?._id]);
 
     const handleAccept = async (id) => {
         try {
@@ -70,6 +137,40 @@ const Network = () => {
         setIsConnectModalOpen(true);
     };
 
+    const fetchNextRecommendation = async () => {
+        try {
+            const exclude = Array.from(seenIdsRef.current);
+            const res = await getRecommendations({ limit: 1, exclude });
+            const next = Array.isArray(res.data) ? res.data[0] : null;
+            if (!next) return null;
+
+            seenIdsRef.current.add(next._id);
+            localStorage.setItem(seenKey, JSON.stringify(Array.from(seenIdsRef.current)));
+            return next;
+        } catch (err) {
+            return null;
+        }
+    };
+
+    const removeRecommendationAndRefill = async (userId) => {
+        removingIdsRef.current.add(userId);
+        setRemovingTick((t) => t + 1);
+
+        // Let the exit transition play.
+        setTimeout(async () => {
+            removingIdsRef.current.delete(userId);
+            setRemovingTick((t) => t + 1);
+
+            const next = await fetchNextRecommendation();
+            setRecommendations((prev) => {
+                const base = prev.filter((r) => r._id !== userId);
+                const nextQueue = next ? [...base, next].slice(0, 10) : base.slice(0, 10);
+                localStorage.setItem(queueKey, JSON.stringify(nextQueue));
+                return nextQueue;
+            });
+        }, 200);
+    };
+
     const confirmConnect = async (e) => {
         e.preventDefault();
         if (!selectedUser) return;
@@ -77,8 +178,8 @@ const Network = () => {
         try {
             await sendConnectionRequest(selectedUser._id, connectMessage);
             toast.success('Connection request sent');
-            // Remove from suggestions visually
-            setSuggestions(suggestions.filter(s => s._id !== selectedUser._id));
+            // Remove from recommendations and fetch the next best.
+            await removeRecommendationAndRefill(selectedUser._id);
             setIsConnectModalOpen(false);
         } catch (error) {
             toast.error(error.response?.data?.msg || 'Error sending request');
@@ -120,25 +221,23 @@ const Network = () => {
                     </div>
                 )}
 
-                {/* Suggestions / Directory Section */}
+                {/* Recommended Connections Section */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 transition-colors duration-200">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">People you may know</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {suggestions.map(user => (
-                            <div key={user._id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center text-center relative">
-                                <img src={user.avatarUrl || 'https://via.placeholder.com/80'} alt="" className="w-20 h-20 rounded-full object-cover mb-3" />
-                                <h4 className="font-bold text-gray-900 dark:text-white line-clamp-1">{user.name}</h4>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 h-8 line-clamp-2">{user.headline || user.role || 'Member'}</p>
-                                <button 
-                                    onClick={() => handleConnectClick(user)}
-                                    className="mt-auto flex items-center justify-center space-x-2 px-4 py-1.5 border border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 rounded-full text-sm font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/20 w-full"
-                                >
-                                    <UserPlus size={16} />
-                                    <span>Connect</span>
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Recommended Connections</h2>
+                    {recsLoading ? (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Loading recommendations...</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {recommendations.map((rec) => (
+                                <RecommendedConnectionCard
+                                    key={rec._id}
+                                    user={rec}
+                                    onConnect={handleConnectClick}
+                                    isRemoving={removingIdsRef.current.has(rec._id)}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* My Connections Section */}
