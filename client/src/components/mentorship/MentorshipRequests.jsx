@@ -99,19 +99,19 @@ const MentorshipRequests = () => {
                     <h2 className="text-lg font-bold mb-4 text-gray-900">Sent Requests</h2>
                     <div className="space-y-4">
                         {outgoingRequests.map(req => (
-                            <div key={req._id} className="border border-gray-100 rounded-lg p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                            <div key={req._id} className="border border-gray-100 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
                                     <img 
                                         src={req.mentor.avatarUrl || 'https://via.placeholder.com/50'} 
                                         alt={req.mentor.name} 
                                         className="w-10 h-10 rounded-full object-cover"
                                     />
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-sm text-gray-900">Request to <span className="font-bold">{req.mentor.name}</span></p>
                                         <p className="text-xs text-gray-500">{moment(req.createdAt).fromNow()}</p>
                                     </div>
                                 </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                                <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-medium capitalize ${
                                     req.status === 'accepted' ? 'bg-green-100 text-green-700' : 
                                     req.status === 'rejected' ? 'bg-red-100 text-red-700' : 
                                     'bg-yellow-100 text-yellow-700'

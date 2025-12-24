@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../layout/Layout';
 import { getConversations, getMessages, sendMessage } from '../../api/chat';
 import { useSocket } from '../../context/SocketContext';
-import { Send, User } from 'lucide-react';
+import { ArrowLeft, Send, User } from 'lucide-react';
 import moment from 'moment';
 
 const Chat = () => {
@@ -76,7 +76,7 @@ const Chat = () => {
         <Layout>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-[calc(100vh-120px)] flex overflow-hidden transition-colors duration-200">
                 {/* Sidebar */}
-                <div className="w-1/3 border-r border-gray-100 dark:border-gray-700 flex flex-col">
+                <div className={`w-full md:w-1/3 border-r border-gray-100 dark:border-gray-700 flex flex-col ${currentChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                         <h2 className="text-xl font-bold text-gray-800 dark:text-white">Messages</h2>
                     </div>
@@ -94,7 +94,7 @@ const Chat = () => {
                                     alt=""
                                     className="w-10 h-10 rounded-full object-cover"
                                 />
-                                <div>
+                                <div className="min-w-0">
                                     <h4 className="font-semibold text-gray-900 dark:text-white">{c.name}</h4>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.headline}</p>
                                 </div>
@@ -104,11 +104,19 @@ const Chat = () => {
                 </div>
 
                 {/* Chat Area */}
-                <div className="flex-1 flex flex-col">
+                <div className={`flex-1 flex flex-col ${currentChat ? 'flex' : 'hidden md:flex'}`}>
                     {currentChat ? (
                         <>
                             {/* Chat Header */}
                             <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentChat(null)}
+                                    className="md:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    aria-label="Back to conversations"
+                                >
+                                    <ArrowLeft size={20} className="text-gray-700 dark:text-gray-200" />
+                                </button>
                                 <img
                                     src={currentChat.avatarUrl || 'https://via.placeholder.com/40'}
                                     alt=""
@@ -131,7 +139,7 @@ const Chat = () => {
                                         }`}
                                     >
                                         <div
-                                            className={`max-w-[70%] p-3 rounded-2xl text-sm ${
+                                            className={`max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl text-sm ${
                                                 m.sender === currentChat._id
                                                     ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-600 rounded-tl-none'
                                                     : 'bg-indigo-600 text-white rounded-tr-none'

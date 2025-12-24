@@ -87,13 +87,13 @@ const Mentorship = () => {
     return (
         <Layout>
             <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mentorship</h1>
-                    <div className="flex gap-3">
-                        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex w-full sm:w-auto">
                             <button 
                                 onClick={() => setActiveTab('find')}
-                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                                     activeTab === 'find' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                 }`}
                             >
@@ -101,7 +101,7 @@ const Mentorship = () => {
                             </button>
                             <button 
                                 onClick={() => setActiveTab('requests')}
-                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                                     activeTab === 'requests' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                 }`}
                             >
@@ -110,7 +110,7 @@ const Mentorship = () => {
                         </div>
                         <button 
                             onClick={() => setShowPreferences(!showPreferences)}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
                         >
                             {showPreferences ? 'Close Settings' : 'Settings'}
                         </button>
@@ -125,7 +125,7 @@ const Mentorship = () => {
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors duration-200">
                         <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Mentorship Preferences</h2>
                         <form onSubmit={handlePreferenceSubmit} className="space-y-4">
-                            <div className="flex gap-6">
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input 
                                         type="checkbox" 
@@ -273,7 +273,7 @@ const Mentorship = () => {
                 {/* Request Modal */}
                 {selectedMentor && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 transition-colors duration-200">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 transition-colors duration-200">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Request Mentorship</h3>
                                 <button onClick={() => setSelectedMentor(null)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
@@ -303,7 +303,7 @@ const Mentorship = () => {
                                     onChange={e => setRequestMessage(e.target.value)}
                                     required
                                 ></textarea>
-                                <div className="flex justify-end gap-3 mt-6">
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
                                     <button 
                                         type="button"
                                         onClick={() => setSelectedMentor(null)}
