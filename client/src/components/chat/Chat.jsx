@@ -6,6 +6,8 @@ import { ArrowLeft, Phone, Send, User, Video } from 'lucide-react';
 import moment from 'moment';
 import { AuthContext } from '../../context/AuthContext';
 import CallOverlay from './CallOverlay';
+import { toast } from 'react-toastify';
+import { startRingtone, stopRingtone } from '../../lib/ringtone';
 
 const Chat = () => {
     const socket = useSocket();
@@ -64,11 +66,40 @@ const Chat = () => {
         });
 
         socket.on('call_invite', (data) => {
-            setIncomingCall({
+            const incoming = {
                 fromUserId: data.fromUserId,
                 callType: data.callType,
                 channelName: data.channelName
-            });
+            };
+
+            setIncomingCall(incoming);
+
+            const callerName = conversationById.get(incoming.fromUserId)?.name;
+            toast.info(`Incoming ${incoming.callType === 'audio' ? 'audio' : 'video'} call${callerName ? ` from ${callerName}` : ''}`);
+
+            // Ring (may be blocked until user interaction on some mobile browsers)
+            startRingtone();
+
+            // Browser notification when tab is not visible
+            try {
+                if (document.hidden && 'Notification' in window) {
+                    if (Notification.permission === 'granted') {
+                        new Notification('Incoming call', {
+                            body: callerName ? `${callerName} is calling you` : 'You have an incoming call'
+                        });
+                    } else if (Notification.permission === 'default') {
+                        Notification.requestPermission().then((perm) => {
+                            if (perm === 'granted') {
+                                new Notification('Incoming call', {
+                                    body: callerName ? `${callerName} is calling you` : 'You have an incoming call'
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                // Ignore notification failures
+            }
         });
 
         socket.on('call_accepted', (data) => {
@@ -100,6 +131,7 @@ const Chat = () => {
             });
             setIncomingCall(null);
             setOutgoingCall(null);
+            stopRingtone();
         });
 
         return () => {
@@ -108,8 +140,9 @@ const Chat = () => {
             socket.off('call_accepted');
             socket.off('call_rejected');
             socket.off('call_ended');
+            stopRingtone();
         };
-    }, [socket, currentChat]);
+    }, [socket, currentChat, conversationById]);
 
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -128,16 +161,17 @@ const Chat = () => {
         }
     };
 
-    const createChannelName = (peerId) => {
-        const me = String(user?._id || 'me');
-        const them = String(peerId || 'peer');
-        const pair = [me, them].sort().join('_');
-        return `call_${pair}_${Date.now()}`;
+    const createChannelName = () => {
+        // Agora channelName must be <= 64 bytes and limited charset.
+        // Keep it short and predictable enough for debugging.
+        const time = Date.now().toString(36);
+        const rand = Math.random().toString(36).slice(2, 10);
+        return `c_${time}_${rand}`; // e.g. c_m2k3z1_4f8a9bcd
     };
 
     const startCall = (callType) => {
         if (!socket || !currentChat) return;
-        const channelName = createChannelName(currentChat._id);
+        const channelName = createChannelName();
         setOutgoingCall({ toUserId: currentChat._id, callType, channelName });
         socket.emit('call_invite', { toUserId: currentChat._id, callType, channelName });
     };
@@ -155,6 +189,7 @@ const Chat = () => {
             channelName: incomingCall.channelName
         });
         setIncomingCall(null);
+        stopRingtone();
     };
 
     const rejectIncomingCall = () => {
@@ -164,6 +199,7 @@ const Chat = () => {
             channelName: incomingCall.channelName
         });
         setIncomingCall(null);
+        stopRingtone();
     };
 
     const endActiveCall = () => {
@@ -176,6 +212,7 @@ const Chat = () => {
             channelName: activeCall.channelName
         });
         setActiveCall(null);
+        stopRingtone();
     };
 
     return (

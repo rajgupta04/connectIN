@@ -1,4 +1,4 @@
-const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -11,8 +11,13 @@ exports.getRtcToken = async (req, res) => {
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
 
     if (!appId || !appCertificate) {
+      const missing = [
+        !appId ? 'AGORA_APP_ID' : null,
+        !appCertificate ? 'AGORA_APP_CERTIFICATE' : null
+      ].filter(Boolean);
       return res.status(500).json({
-        msg: 'Agora is not configured. Set AGORA_APP_ID and AGORA_APP_CERTIFICATE on the server.'
+        msg: 'Agora is not configured on the server.',
+        missing
       });
     }
 
@@ -50,6 +55,9 @@ exports.getRtcToken = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).send('Server Error');
+    return res.status(500).json({
+      msg: 'Failed to generate Agora token',
+      error: err?.message || 'Unknown error'
+    });
   }
 };
