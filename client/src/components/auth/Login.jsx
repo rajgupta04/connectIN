@@ -5,9 +5,10 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Antigravity from './Antigravity';
 import ThemeToggle from '../layout/ThemeToggle';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const Login = () => {
-  const { login, isAuthenticated } = useContext(AuthContext);
+  const { login, loginWithGoogle, isAuthenticated } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -24,6 +25,14 @@ const Login = () => {
       await login(email, password);
     } catch (err) {
       toast.error(err.response?.data?.errors?.[0]?.msg || 'Login Failed');
+    }
+  };
+
+  const onGoogleCredential = async (credential) => {
+    try {
+      await loginWithGoogle(credential);
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Google sign-in failed');
     }
   };
 
@@ -125,6 +134,10 @@ const Login = () => {
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-3">
+               <GoogleSignInButton
+                 onCredential={onGoogleCredential}
+                 onError={() => toast.error('Failed to load Google sign-in')}
+               />
                <div className="text-center">
                   <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
                     Create a new account

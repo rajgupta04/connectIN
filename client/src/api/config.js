@@ -10,6 +10,8 @@ export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_UR
 
 export const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID;
 
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 // Prefer an explicit socket URL; otherwise derive from API base by stripping trailing /api.
 export const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||

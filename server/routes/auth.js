@@ -29,6 +29,11 @@ router.post(
   authController.loginUser
 );
 
+// @route   POST api/auth/google
+// @desc    Authenticate via Google ID token & get app JWT
+// @access  Public
+router.post('/google', authController.googleLogin);
+
 // @route   GET api/auth
 // @desc    Get user by token
 // @access  Private

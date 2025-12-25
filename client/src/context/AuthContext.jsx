@@ -112,6 +112,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (credential) => {
+    try {
+      const res = await authApi.googleLogin(credential);
+
+      localStorage.setItem('token', res.data.token);
+
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: res.data
+      });
+
+      await loadUser();
+    } catch (err) {
+      localStorage.removeItem('token');
+      dispatch({
+        type: 'LOGIN_FAIL'
+      });
+      throw err;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     dispatch({ type: 'LOGOUT' });
@@ -126,6 +147,7 @@ export const AuthProvider = ({ children }) => {
         user: state.user,
         register,
         login,
+        loginWithGoogle,
         logout,
         loadUser
       }}

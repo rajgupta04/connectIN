@@ -25,6 +25,9 @@ PORT=5000
 MONGO_URI=mongodb+srv://...
 JWT_SECRET=your_long_random_secret
 
+# Google OAuth (Sign-in)
+GOOGLE_CLIENT_ID=130574480266-4qeuib68n1ok96g822u5q8dkotuah1jf.apps.googleusercontent.com
+
 # Cloudinary
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
@@ -42,6 +45,7 @@ Create client env files (Vite):
 ```env
 VITE_API_BASE_URL=http://localhost:5000/api
 VITE_SOCKET_URL=http://localhost:5000
+VITE_GOOGLE_CLIENT_ID=130574480266-4qeuib68n1ok96g822u5q8dkotuah1jf.apps.googleusercontent.com
 ```
 
 Production: set these in your hosting provider (recommended), or use `client/.env.production`:
